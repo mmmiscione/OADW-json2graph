@@ -13,7 +13,7 @@ credential_name =>'OBJ_STORE_GRAPH_LAB_EXTT',
 file_uri_list =>'Your Object Storage bucket url/pi_schedules.json',
 format => json_object('readsize' value '90000000', 'recorddelimiter' value 'newline','maxdocsize' value 104857600, 'rejectlimit' value 10000000 , 'unpackarrays' value TRUE ),
 column_list => 'json_document blob',
-field_list => 'json_document raw'
+field_list => 'json_document char(5000000000)'
 );
 END;
 /
@@ -107,103 +107,104 @@ WHERE
 -- Apply some enrichment and data clinsing to the SCHEDULES to have the EDGES reaty for the Propery Graph creation
 
 CREATE OR REPLACE VIEW VW_HOPS AS
-    SELECT
-        ID,
-        TRAIN_NUMBER,
-        TRAIN_NAME,
-        DAY,
-        DEPARTURE,
-        TO_DATE(DEPARTURE, 'HH24:MI:SS') + DAY - 1                                                         DEPARTURE_DATE,
-        ( TO_DATE(DEPARTURE, 'HH24:MI:SS') + DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60       DEP_MINUTES,
-        STATION_CODE,
-        STATION_NAME,
-        NEW_ARRIVAL,
-        NEW_DAY,
-        TO_DATE(NEW_ARRIVAL, 'HH24:MI:SS') + NEW_DAY - 1                                                   NEW_ARRIVAL_DATE,
-        ( TO_DATE(NEW_ARRIVAL, 'HH24:MI:SS') + NEW_DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60 ARR_MINUTES,
-        STATION_ARRIVAL_CODE,
-        STATION_ARRIVAL_NAME,
-        CASE
-            WHEN ( ( ( TO_DATE(NEW_ARRIVAL, 'HH24:MI:SS') + NEW_DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60 - ( TO_DATE(DEPARTURE,
-            'HH24:MI:SS') + DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60 ) * 60 ) = 0 THEN
-                0.1
-            ELSE
-                ( ( ( TO_DATE(NEW_ARRIVAL, 'HH24:MI:SS') + NEW_DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60 - ( TO_DATE(DEPARTURE,
-                'HH24:MI:SS') + DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60 ) * 60 )
-        END                                                                                                DURATION_SEC
-    FROM
-        (
-            SELECT
-                ID,
-                TRAIN_NUMBER,
-                TRAIN_NAME,
-                DAY,
-                DEPARTURE,
-                STATION_CODE,
-                STATION_NAME,
-                NEW_ARRIVAL,
-                NEW_DAY,
-                STATION_ARRIVAL_CODE,
-                STATION_ARRIVAL_NAME
-            FROM
-                (
-                    SELECT
-                        ID,
-                        TRAIN_NUMBER,
-                        TRAIN_NAME,
-                        DAY,
-                        DEPARTURE,
-                        STATION_CODE,
-                        STATION_NAME,
-                        CASE
-                            WHEN LEAD(ARRIVAL, 1, 0)
-                                 OVER(PARTITION BY TRAIN_NUMBER
-                                      ORDER BY
-                                          ID
-                                 ) IN ( '0', 'None' ) THEN
-                                DEPARTURE
-                            ELSE
-                                LEAD(ARRIVAL, 1, 0)
-                                OVER(PARTITION BY TRAIN_NUMBER
-                                     ORDER BY
-                                         ID
-                                )
-                        END NEW_ARRIVAL,
-                        CASE
-                            WHEN LEAD(DAY, 1, 0)
-                                 OVER(PARTITION BY TRAIN_NUMBER
-                                      ORDER BY
-                                          ID
-                                 ) = 0 THEN
-                                DAY
-                            ELSE
-                                LEAD(DAY, 1, 0)
-                                OVER(PARTITION BY TRAIN_NUMBER
-                                     ORDER BY
-                                         ID
-                                )
-                        END NEW_DAY,
-                        LEAD(STATION_CODE, 1, 0)
-                        OVER(PARTITION BY TRAIN_NUMBER
-                             ORDER BY
-                                 ID
-                        )   STATION_ARRIVAL_CODE,
-                        LEAD(STATION_NAME, 1, 0)
-                        OVER(PARTITION BY TRAIN_NUMBER
-                             ORDER BY
-                                 ID
-                        )   STATION_ARRIVAL_NAME
-                    FROM
-                        VW_SCHEDULES_NO_NULL
-                    WHERE
-                        DEPARTURE <> 'None'
-                    ORDER BY
-                        ID ASC
-                )
-        )
-    WHERE
-            NEW_ARRIVAL <> '0'
-        AND STATION_ARRIVAL_CODE <> '0'
-        AND ( TO_DATE(NEW_ARRIVAL, 'HH24:MI:SS') + NEW_DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60 - ( TO_DATE(DEPARTURE,
-        'HH24:MI:SS') + DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60 >= 0;
+SELECT
+    ID,
+    TRAIN_NUMBER,
+    TRAIN_NAME,
+    DAY,
+    DEPARTURE,
+    TO_DATE(DEPARTURE, 'HH24:MI:SS') + DAY - 1                                                         DEPARTURE_DATE,
+    ( TO_DATE(DEPARTURE, 'HH24:MI:SS') + DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60       DEP_MINUTES,
+    STATION_CODE,
+    STATION_NAME,
+    NEW_ARRIVAL,
+    NEW_DAY,
+    TO_DATE(NEW_ARRIVAL, 'HH24:MI:SS') + NEW_DAY - 1                                                   NEW_ARRIVAL_DATE,
+    ( TO_DATE(NEW_ARRIVAL, 'HH24:MI:SS') + NEW_DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60 ARR_MINUTES,
+    STATION_ARRIVAL_CODE,
+    STATION_ARRIVAL_NAME,
+    CASE
+        WHEN ( ( ( TO_DATE(NEW_ARRIVAL, 'HH24:MI:SS') + NEW_DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60 - ( TO_DATE(DEPARTURE,
+        'HH24:MI:SS') + DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60 ) * 60 ) = 0 THEN
+            0.1
+        ELSE
+            ( ( ( TO_DATE(NEW_ARRIVAL, 'HH24:MI:SS') + NEW_DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60 - ( TO_DATE(DEPARTURE,
+            'HH24:MI:SS') + DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60 ) * 60 )
+    END                                                                                                DURATION_SEC
+FROM
+    (
+        SELECT
+            ID,
+            TRAIN_NUMBER,
+            TRAIN_NAME,
+            DAY,
+            DEPARTURE,
+            STATION_CODE,
+            STATION_NAME,
+            NEW_ARRIVAL,
+            NEW_DAY,
+            STATION_ARRIVAL_CODE,
+            STATION_ARRIVAL_NAME
+        FROM
+            (
+                SELECT
+                    ID,
+                    TRAIN_NUMBER,
+                    TRAIN_NAME,
+                    DAY,
+                    DEPARTURE,
+                    STATION_CODE,
+                    STATION_NAME,
+                    CASE
+                        WHEN LEAD(ARRIVAL, 1, 0)
+                             OVER(PARTITION BY TRAIN_NUMBER
+                                  ORDER BY
+                                      ID
+                             ) IN ( '0', 'None' ) THEN
+                            DEPARTURE
+                        ELSE
+                            LEAD(ARRIVAL, 1, 0)
+                            OVER(PARTITION BY TRAIN_NUMBER
+                                 ORDER BY
+                                     ID
+                            )
+                    END NEW_ARRIVAL,
+                    CASE
+                        WHEN LEAD(DAY, 1, 0)
+                             OVER(PARTITION BY TRAIN_NUMBER
+                                  ORDER BY
+                                      ID
+                             ) = 0 THEN
+                            DAY
+                        ELSE
+                            LEAD(DAY, 1, 0)
+                            OVER(PARTITION BY TRAIN_NUMBER
+                                 ORDER BY
+                                     ID
+                            )
+                    END NEW_DAY,
+                    LEAD(STATION_CODE, 1, 0)
+                    OVER(PARTITION BY TRAIN_NUMBER
+                         ORDER BY
+                             ID
+                    )   STATION_ARRIVAL_CODE,
+                    LEAD(STATION_NAME, 1, 0)
+                    OVER(PARTITION BY TRAIN_NUMBER
+                         ORDER BY
+                             ID
+                    )   STATION_ARRIVAL_NAME
+                FROM
+                    MMISCIONE.VW_SCHEDULES
+                WHERE
+                    DEPARTURE <> 'None'
+                ORDER BY
+                    ID ASC
+            )
+    ) 
+WHERE
+        NEW_ARRIVAL <> '0'
+    AND STATION_ARRIVAL_CODE <> '0'
+    AND ( TO_DATE(NEW_ARRIVAL, 'HH24:MI:SS') + NEW_DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60 - ( TO_DATE(DEPARTURE, 'HH24:MI:SS') +
+    DAY - 1 - TO_DATE('00:00:00', 'HH24:MI:SS') ) * 24 * 60 >= 0
+;
 
